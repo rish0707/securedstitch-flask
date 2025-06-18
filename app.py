@@ -4,8 +4,10 @@ import hmac
 import hashlib
 import base64
 import os
-
+from flask_cors import CORS   
 app = Flask(__name__)
+CORS(app)  
+
 
 SECURED_STITCH_BASE_URL = 'https://securedstitch-bfcuddejg4d8beaj.canadacentral-01.azurewebsites.net'
 SECURED_STITCH_MEMBER_KEY = '30F5C69F-45F2-4650-99CB-0EF53DDD13F6'
