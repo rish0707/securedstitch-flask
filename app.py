@@ -6,7 +6,7 @@ import base64
 import os
 from flask_cors import CORS   
 app = Flask(__name__)
-CORS(app)  
+CORS(app, origins=["https://wearnou.com"])  
 
 
 SECURED_STITCH_BASE_URL = 'https://securedstitch-bfcuddejg4d8beaj.canadacentral-01.azurewebsites.net'
