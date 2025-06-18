@@ -9,9 +9,9 @@ app = Flask(__name__)
 
 SECURED_STITCH_BASE_URL = 'https://securedstitch-bfcuddejg4d8beaj.canadacentral-01.azurewebsites.net'
 SECURED_STITCH_MEMBER_KEY = '30F5C69F-45F2-4650-99CB-0EF53DDD13F6'
-SHOPIFY_WEBHOOK_SECRET = os.getenv('SHOPIFY_WEBHOOK_SECRET')  # Recommended: set in Render
+SHOPIFY_WEBHOOK_SECRET = os.getenv('SHOPIFY_WEBHOOK_SECRET')
 
-# === 1️⃣ Optional: verify Shopify HMAC ===
+# === HMAC VERIFY ===
 def verify_shopify_webhook(data, hmac_header):
     digest = hmac.new(
         SHOPIFY_WEBHOOK_SECRET.encode('utf-8'),
@@ -21,7 +21,7 @@ def verify_shopify_webhook(data, hmac_header):
     computed_hmac = base64.b64encode(digest).decode()
     return hmac.compare_digest(computed_hmac, hmac_header)
 
-# === 2️⃣ NEW: Backend proxy for front-end to securely get a quote ===
+# === /get-quote (robust) ===
 @app.route('/get-quote', methods=['POST'])
 def get_quote():
     data = request.json
@@ -36,7 +36,7 @@ def get_quote():
         "Product": data.get("Product", "SNK")
     }
 
-    print(f"Calling Secured Stitch /quote with payload: {payload}")
+    print(f"\n[LOG] Calling Secured Stitch /quote with payload:\n{payload}")
 
     try:
         response = requests.post(
@@ -44,14 +44,23 @@ def get_quote():
             json=payload,
             headers={"Content-Type": "application/json"}
         )
-        print(f"Secured Stitch Quote Response: {response.text}")
-        return jsonify(response.json()), response.status_code
+
+        print(f"[LOG] Secured Stitch Quote Response: {response.status_code} | {response.text}")
+
+        # If Secured Stitch returns error, bubble it up clearly
+        if not response.ok:
+            return jsonify({
+                "error": f"Secured Stitch responded with {response.status_code}",
+                "body": response.text
+            }), response.status_code
+
+        return jsonify(response.json()), 200
 
     except Exception as e:
-        print(f"Error in /get-quote: {str(e)}")
+        print(f"[ERROR] Exception in /get-quote: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# === 3️⃣ Order Paid Webhook ===
+# === /webhook/order-paid ===
 @app.route('/webhook/order-paid', methods=['POST'])
 def order_paid():
     hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
@@ -70,8 +79,7 @@ def order_paid():
 
     for item in order.get('line_items', []):
         if 'Care+' in item.get('title', ''):
-            properties = item.get('properties', [])
-            for prop in properties:
+            for prop in item.get('properties', []):
                 if prop.get('name') == 'quoteId' or prop.get('key') == 'quoteId':
                     quote_id = prop.get('value')
             break
@@ -85,18 +93,24 @@ def order_paid():
             "Address": address,
             "Member": SECURED_STITCH_MEMBER_KEY
         }
+
+        print(f"[LOG] Sending to Secured Stitch /sale: {payload}")
+
         try:
-            response = requests.post(f"{SECURED_STITCH_BASE_URL}/sale", json=payload)
-            print(f"Secured Stitch Sale Response: {response.text}")
+            response = requests.post(
+                f"{SECURED_STITCH_BASE_URL}/sale",
+                json=payload
+            )
+            print(f"[LOG] Secured Stitch Sale Response: {response.status_code} | {response.text}")
             return jsonify({"status": "success"}), 200
         except Exception as e:
-            print(f"Error in /webhook/order-paid: {str(e)}")
+            print(f"[ERROR] Exception in /webhook/order-paid: {str(e)}")
             return jsonify({"status": "error"}), 500
     else:
-        print(f"No Care+ or quoteId missing for Order: {order_id}")
+        print(f"[LOG] No Care+ or missing quoteId for Order: {order_id}")
         return jsonify({"status": "ignored"}), 200
 
-# === 4️⃣ Order Cancelled Webhook ===
+# === /webhook/order-cancelled ===
 @app.route('/webhook/order-cancelled', methods=['POST'])
 def order_cancelled():
     hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
@@ -108,14 +122,16 @@ def order_cancelled():
     order = request.json
     order_id = order.get('id')
 
+    print(f"[LOG] Cancelling Secured Stitch Sale for Order: {order_id}")
+
     try:
         response = requests.delete(f"{SECURED_STITCH_BASE_URL}/sale/{order_id}")
-        print(f"Secured Stitch Cancel Response: {response.text}")
+        print(f"[LOG] Secured Stitch Cancel Response: {response.status_code} | {response.text}")
         return jsonify({"status": "success"}), 200
     except Exception as e:
-        print(f"Error in /webhook/order-cancelled: {str(e)}")
+        print(f"[ERROR] Exception in /webhook/order-cancelled: {str(e)}")
         return jsonify({"status": "error"}), 500
 
-# === 5️⃣ Flask entry point ===
+# === Run ===
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
