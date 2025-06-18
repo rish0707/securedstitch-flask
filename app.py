@@ -49,18 +49,19 @@ def get_quote():
 
         print(f"[LOG] Secured Stitch Quote Response: {response.status_code} | {response.text}")
 
-        # If Secured Stitch returns error, bubble it up clearly
-        if not response.ok:
+        # Safely try to parse JSON ONLY if response is OK
+        if response.ok:
+            return jsonify(response.json()), 200
+        else:
             return jsonify({
                 "error": f"Secured Stitch responded with {response.status_code}",
                 "body": response.text
             }), response.status_code
 
-        return jsonify(response.json()), 200
-
     except Exception as e:
         print(f"[ERROR] Exception in /get-quote: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 # === /webhook/order-paid ===
 @app.route('/webhook/order-paid', methods=['POST'])
