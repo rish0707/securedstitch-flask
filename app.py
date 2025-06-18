@@ -8,6 +8,10 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app, origins=["https://wearnou.com"])  
 
+@app.route("/", methods=["GET", "HEAD"])
+def health_check():
+    return "OK", 200
+
 
 SECURED_STITCH_BASE_URL = 'https://securedstitch-bfcuddejg4d8beaj.canadacentral-01.azurewebsites.net'
 SECURED_STITCH_MEMBER_KEY = '30F5C69F-45F2-4650-99CB-0EF53DDD13F6'
