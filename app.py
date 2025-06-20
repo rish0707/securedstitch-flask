@@ -18,20 +18,24 @@ def health():
 @app.route("/get-quote", methods=["POST"])
 def get_quote():
     data = request.json
-    payload = {
-        "member": SECURED_STITCH_MEMBER_KEY,
-        "currencycode": data.get("currencycode", "INR"),
-        "brand": data.get("brand", "genericbrand"),
-        "price": data.get("price", 1000),
-        "name": data.get("name", "generic product"),
-        "size": data.get("size", "6"),
-        "product": data.get("product", "SNK")
+
+    # ✅ Convert your lowercase input to Secured Stitch PascalCase keys:
+    secured_stitch_payload = {
+        "Member": SECURED_STITCH_MEMBER_KEY,
+        "CurrencyCode": data.get("currencycode", "INR"),
+        "Brand": data.get("brand", "GenericBrand"),
+        "Price": data.get("price", 1000),
+        "Name": data.get("name", "Generic Product"),
+        "Size": data.get("size", "6"),
+        "Product": data.get("product", "SNK")
     }
-    print(f"[LOG] /get-quote payload: {payload}")
+
+    print(f"[LOG] Sending to Secured Stitch /quote: {secured_stitch_payload}")
+
     try:
         response = requests.post(
             f"{SECURED_STITCH_BASE_URL}/quote",
-            json=payload,
+            json=secured_stitch_payload,
             headers={"Content-Type": "application/json"}
         )
         print(f"[LOG] Secured Stitch Quote: {response.status_code} | {response.text}")
@@ -40,17 +44,20 @@ def get_quote():
             return jsonify({"error": f"Secured Stitch {response.status_code}", "body": response.text}), response.status_code
 
         raw = response.json()
-        # ✅ Map to lowercase keys for your JS!
+
+        # ✅ Convert back to lowercase keys for your JS:
         result = {
             "quoteid": raw.get("quoteId"),
             "productprice": raw.get("ProductPrice"),
             "html": raw.get("html", "")
         }
+
         return jsonify(result), 200
 
     except Exception as e:
         print(f"[ERROR] /get-quote: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 
 # === /write-sale ===
