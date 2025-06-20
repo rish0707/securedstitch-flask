@@ -35,19 +35,23 @@ def get_quote():
             headers={"Content-Type": "application/json"}
         )
         print(f"[LOG] Secured Stitch Quote: {response.status_code} | {response.text}")
+
         if not response.ok:
             return jsonify({"error": f"Secured Stitch {response.status_code}", "body": response.text}), response.status_code
+
         raw = response.json()
-        # Map to lowercase keys
+        # ✅ Map to lowercase keys for your JS!
         result = {
             "quoteid": raw.get("quoteId"),
             "productprice": raw.get("ProductPrice"),
             "html": raw.get("html", "")
         }
         return jsonify(result), 200
+
     except Exception as e:
         print(f"[ERROR] /get-quote: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 # === /write-sale ===
 @app.route("/write-sale", methods=["POST"])
