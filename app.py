@@ -19,8 +19,8 @@ def health():
 def get_quote():
     data = request.json
 
-    # ✅ Convert your lowercase input to Secured Stitch PascalCase keys:
-    secured_stitch_payload = {
+    # ✅ 1) Map lowercase input to PascalCase for Secured Stitch:
+    payload = {
         "Member": SECURED_STITCH_MEMBER_KEY,
         "CurrencyCode": data.get("currencycode", "INR"),
         "Brand": data.get("brand", "GenericBrand"),
@@ -30,34 +30,39 @@ def get_quote():
         "Product": data.get("product", "SNK")
     }
 
-    print(f"[LOG] Sending to Secured Stitch /quote: {secured_stitch_payload}")
+    print(f"[LOG] /get-quote → Secured Stitch payload: {payload}")
 
     try:
         response = requests.post(
             f"{SECURED_STITCH_BASE_URL}/quote",
-            json=secured_stitch_payload,
+            json=payload,
             headers={"Content-Type": "application/json"}
         )
-        print(f"[LOG] Secured Stitch Quote: {response.status_code} | {response.text}")
+
+        print(f"[LOG] Secured Stitch Quote Response: {response.status_code} | {response.text}")
 
         if not response.ok:
-            return jsonify({"error": f"Secured Stitch {response.status_code}", "body": response.text}), response.status_code
+            # Bubble up Secured Stitch's error for debugging:
+            return jsonify({
+                "error": f"Secured Stitch returned {response.status_code}",
+                "body": response.text
+            }), response.status_code
 
         raw = response.json()
 
-        # ✅ Convert back to lowercase keys for your JS:
+        # ✅ 2) Convert Secured Stitch response back to lowercase for your JS:
         result = {
             "quoteid": raw.get("quoteId"),
             "productprice": raw.get("ProductPrice"),
             "html": raw.get("html", "")
         }
 
+        print(f"[LOG] Returning to JS: {result}")
         return jsonify(result), 200
 
     except Exception as e:
-        print(f"[ERROR] /get-quote: {str(e)}")
+        print(f"[ERROR] /get-quote Exception: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 
 
 # === /write-sale ===
